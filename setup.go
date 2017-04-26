@@ -1,6 +1,7 @@
 package ratelimit
 
 import (
+	"net"
 	"strconv"
 
 	"github.com/mholt/caddy"
@@ -51,13 +52,28 @@ func rateLimitParse(c *caddy.Controller) (rules []Rule, err error) {
 			}
 			rule.Unit = args[2]
 			for c.NextBlock() {
-				rule.Resources = append(rule.Resources, c.Val())
-				if c.NextArg() {
-					return rules, c.Errf("Expecting only one resource per line (extra '%s')", c.Val())
+				if c.Val() == "allowLocalIPs" {
+					for c.NextArg() {
+						_, ipNet, err := net.ParseCIDR(c.Val())
+						if err != nil {
+							return rules, c.Errf("Cannot parse allow local ip")
+						}
+						rule.AllowIPs = append(rule.AllowIPs, ipNet)
+					}
+				}
+
+				if c.Val() == "resources" {
+					if !c.NextArg() {
+						return rules, c.Errf("Missing method and resources")
+					}
+					method := c.Val()
+					for c.NextArg() {
+						rule.Resources = append(rule.Resources, Resource{Method: method, Url: c.Val()})
+					}
 				}
 			}
 		case 4:
-			rule.Resources = append(rule.Resources, args[0])
+			rule.Resources = append(rule.Resources, Resource{Method: "*", Url: args[0]})
 			rule.Rate, err = strconv.ParseInt(args[1], 10, 64)
 			if err != nil {
 				return rules, err

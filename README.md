@@ -1,6 +1,34 @@
 ## caddy-rate-limit
 >a `rate limit` plugin for [caddy](https://caddyserver.com/)
 
+
+**New
+
+ - Allow rate limit for localIP address (Optional)
+
+ - Allow rate limit for specific http method (GET, POST, ..), * for rate limit allmethod
+
+ - Caddyfile example:
+
+```
+
+...
+
+  ratelimit  2 3 minute  {
+     allowLocalIPs 192.168.0.0/6
+     resources GET / ^/profiles ^/static
+     resources POST /profiles
+  }
+
+
+...
+
+```
+
+
+
+
+
 [![Travis CI](https://img.shields.io/travis/xuqingfeng/caddy-rate-limit/master.svg?style=flat-square)](https://travis-ci.org/xuqingfeng/caddy-rate-limit)
 [![Go Report Card](https://goreportcard.com/badge/github.com/xuqingfeng/caddy-rate-limit?style=flat-square)](https://goreportcard.com/report/github.com/xuqingfeng/caddy-rate-limit)
 [![GoDoc](https://img.shields.io/badge/godoc-reference-blue.svg?style=flat-square)](https://godoc.org/github.com/xuqingfeng/caddy-rate-limit)

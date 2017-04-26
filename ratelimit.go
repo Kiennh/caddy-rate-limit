@@ -19,8 +19,14 @@ type RateLimit struct {
 type Rule struct {
 	Rate      int64
 	Burst     int
-	Resources []string
+	Resources []Resource
 	Unit      string
+	AllowIPs  []*net.IPNet
+}
+
+type Resource struct {
+	Method string
+	Url    string
 }
 
 const (
@@ -55,9 +61,9 @@ func (rl RateLimit) ServeHTTP(w http.ResponseWriter, r *http.Request) (int, erro
 	// handle exception first
 	for _, rule := range rl.Rules {
 		for _, res := range rule.Resources {
-			if strings.HasPrefix(res, symbol) {
-				res = strings.TrimPrefix(res, symbol)
-				if httpserver.Path(r.URL.Path).Matches(res) {
+			if strings.HasPrefix(res.Url, symbol) {
+				res = Resource{Method: res.Method, Url: strings.TrimPrefix(res.Url, symbol)}
+				if httpserver.Path(r.URL.Path).Matches(res.Url) && (res.Method == "*" || res.Method == r.Method) {
 					return rl.Next.ServeHTTP(w, r)
 				}
 			}
@@ -66,7 +72,11 @@ func (rl RateLimit) ServeHTTP(w http.ResponseWriter, r *http.Request) (int, erro
 
 	for _, rule := range rl.Rules {
 		for _, res := range rule.Resources {
-			if !httpserver.Path(r.URL.Path).Matches(res) {
+			if !httpserver.Path(r.URL.Path).Matches(res.Url) {
+				continue
+			}
+
+			if r.Method != res.Method {
 				continue
 			}
 
@@ -76,12 +86,13 @@ func (rl RateLimit) ServeHTTP(w http.ResponseWriter, r *http.Request) (int, erro
 				if err != nil {
 					return http.StatusInternalServerError, err
 				}
-				if IsLocalIpAddress(address, localIpNets) {
+
+				if !IsLocalIpAddress(address, rule.AllowIPs) && IsLocalIpAddress(address, localIpNets) {
 					continue
 				}
 			}
 
-			sliceKeys := buildKeys(res, r)
+			sliceKeys := buildKeys(res.Url, r)
 			for _, keys := range sliceKeys {
 				ret := caddyLimiter.Allow(keys, rule)
 				retryAfter = caddyLimiter.RetryAfter(keys)
